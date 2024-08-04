@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EAN-13 Barcode Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #2c3e50;
+            color: white;
+        }
+        .barcode-container {
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+        #barcode {
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 10px;
+        }
+        #count-label {
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        #toggle-button {
+            background-color: #ff4757;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 25px;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        #toggle-button.start {
+            background-color: #2ecc71;
+        }
+        .timer-control {
+            display: flex;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .timer-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 25px;
+            margin: 0 10px;
+            transition: background-color 0.3s;
+        }
+        .timer-display {
+            font-size: 18px;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="barcode-container">
+        <svg id="barcode"></svg>
+        <div id="count-label"></div>
+    </div>
+    <button id="toggle-button">STOP</button>
+    <div class="timer-control">
+        <button id="decrease-timer" class="timer-button">-</button>
+        <span id="timer-display" class="timer-display">2.0</span>
+        <button id="increase-timer" class="timer-button">+</button>
+    </div>
+
+    <script>
+        let barcodeCount = 0;
+        let countdownInterval;
+        let isRunning = true;
+        let timerDuration = 2.0; // Default timer duration in seconds
+        let holdInterval;
+
+        function generateEAN13() {
+            let ean = '';
+            for (let i = 0; i < 12; i++) {
+                ean += Math.floor(Math.random() * 10).toString();
+            }
+            
+            let sum = 0;
+            for (let i = 0; i < 12; i++) {
+                sum += parseInt(ean[i]) * (i % 2 === 0 ? 1 : 3);
+            }
+            let checkDigit = (10 - (sum % 10)) % 10;
+            
+            return ean + checkDigit;
+        }
+
+        function generateBarcode() {
+            const ean = generateEAN13();
+            JsBarcode("#barcode", ean, {
+                format: "EAN13",
+                width: 2,
+                height: 100,
+                displayValue: true,
+                background: "white",
+                lineColor: "black",
+                textColor: "black",
+                fontSize: 14,
+                textMargin: 2,
+                marginTop: 10,
+                marginBottom: 10
+            });
+            barcodeCount++;
+            updateCountLabel(timerDuration);
+        }
+
+        function updateCountLabel(countdown) {
+            const countLabel = document.getElementById('count-label');
+            countLabel.textContent = isRunning ? 
+                `${barcodeCount} | Next in: ${countdown.toFixed(1)} sec` : 
+                `${barcodeCount} | Paused`;
+        }
+
+        function startCountdown() {
+            let countdown = timerDuration;
+            updateCountLabel(countdown);
+            countdownInterval = setInterval(() => {
+                if (!isRunning) {
+                    clearInterval(countdownInterval);
+                    return;
+                }
+                countdown -= 0.1;
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    generateBarcode();
+                    startCountdown();
+                } else {
+                    updateCountLabel(countdown);
+                }
+            }, 100);
+        }
+
+        function toggleBarcode() {
+            const toggleButton = document.getElementById('toggle-button');
+            isRunning = !isRunning;
+            if (isRunning) {
+                toggleButton.textContent = 'STOP';
+                toggleButton.classList.remove('start');
+                generateBarcode();
+                startCountdown();
+            } else {
+                toggleButton.textContent = 'START';
+                toggleButton.classList.add('start');
+                clearInterval(countdownInterval);
+                updateCountLabel(0);
+            }
+        }
+
+        function updateTimerDisplay() {
+            document.getElementById('timer-display').textContent = timerDuration.toFixed(1);
+        }
+
+        function changeTimerDuration(amount) {
+            timerDuration = Math.max(0.1, timerDuration + amount);
+            updateTimerDisplay();
+        }
+
+        document.getElementById('toggle-button').addEventListener('click', toggleBarcode);
+
+        const decreaseTimerButton = document.getElementById('decrease-timer');
+        const increaseTimerButton = document.getElementById('increase-timer');
+
+        decreaseTimerButton.addEventListener('mousedown', () => {
+            holdInterval = setInterval(() => changeTimerDuration(-0.1), 100);
+        });
+        increaseTimerButton.addEventListener('mousedown', () => {
+            holdInterval = setInterval(() => changeTimerDuration(0.1), 100);
+        });
+
+        document.addEventListener('mouseup', () => clearInterval(holdInterval));
+        document.addEventListener('mouseleave', () => clearInterval(holdInterval));
+
+        document.querySelector('.barcode-container').addEventListener('click', () => {
+            if (isRunning) {
+                clearInterval(countdownInterval);
+                generateBarcode();
+                startCountdown();
+            }
+        });
+
+        // Initial barcode generation
+        generateBarcode();
+        startCountdown();
+    </script>
+</body>
+</html>
